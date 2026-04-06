@@ -6,47 +6,54 @@ import random
 import string
 from flask import Flask
 
-# --- API MÍNIMA ---
+# --- CONFIGURAÇÃO ---
+# DICA: No Railway, você pode colocar o Token em "Variables" no painel
+# Mas se quiser testar rápido, cole o NOVO TOKEN aqui:
+TOKEN = "MTQ5MDUzMTQyNDQ5Mzc2NDY5OQ.GEDthf.yF94S4x3-cKY2LGvM5lBjret_TLOGNhrHvg-Uo" 
+
 app = Flask(__name__)
 keys_db = {"ICE-FREE": None}
 
 @app.route('/')
-def home(): 
-    return "ONLINE"
+def home():
+    return "SOUZA METHODS ONLINE ❄️", 200
 
-@app.route('/health') # Alguns sites usam isso para saber se o app vive
-def health(): 
-    return "OK", 200
+@app.route('/check')
+def check():
+    k = request.args.get('key')
+    u = request.args.get('hwid')
+    if k in keys_db:
+        if keys_db[k] is None:
+            keys_db[k] = str(u)
+            return {"success": True}, 200
+        return {"success": str(keys_db[k]) == str(u)}, 200
+    return {"success": False}, 404
 
-# --- BOT DISCORD ---
-TOKEN = "MTQ5MDUzMTQyNDQ5Mzc2NDY5OQ.GEDthf.yF94S4x3-cKY2LGvM5lBjret_TLOGNhrHvg-Uo" # COLOQUE O TOKEN NOVO AQUI!
-
+# --- BOT ---
 intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents)
+
+@bot.event
+async def on_ready():
+    print(f"✅ BOT ESTÁ VIVO: {bot.user}")
 
 @bot.command()
 async def gerar(ctx):
     key = "ICE-" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
     keys_db[key] = None
-    await ctx.send(f"❄️ Key: `{key}`")
+    await ctx.send(f"❄️ **Key:** `{key}`")
 
-# --- INICIALIZAÇÃO CRÍTICA ---
-def run_flask():
-    # O Render/Koyeb passa a porta pela variável 'PORT'
-    port = int(os.environ.get("PORT", 10000))
-    print(f"Iniciando Flask na porta {port}...")
-    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
-
+# --- INICIALIZAÇÃO ---
 if __name__ == "__main__":
-    # 1. Sobe a Web primeiro (importante para o Render não dar erro)
-    t = threading.Thread(target=run_flask)
-    t.daemon = True
-    t.start()
+    # O Railway passa a porta pela variável PORT
+    port = int(os.environ.get("PORT", 8080))
     
-    # 2. Sobe o Bot
-    print("Iniciando Bot do Discord...")
+    # Roda a API em segundo plano
+    threading.Thread(target=lambda: app.run(host='0.0.0.0', port=port, use_reloader=False), daemon=True).start()
+    
+    # Roda o Bot no processo principal
     try:
         bot.run(TOKEN)
     except Exception as e:
-        print(f"Erro no Bot: {e}")
+        print(f"ERRO CRÍTICO: {e}")
